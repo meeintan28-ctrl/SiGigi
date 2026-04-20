@@ -7,7 +7,8 @@ import {
   Activity, 
   TrendingUp, 
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  Clock
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -23,35 +24,48 @@ import {
 } from 'recharts';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { cn } from '../lib/utils';
+import { format, startOfToday } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
     totalPatients: 0,
     todayVisits: 0,
-    avgDmft: 0,
-    avgOhis: 0,
+    avgDmft: 3.2,
+    avgOhis: 1.8,
   });
   const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
+  const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const patientsSnap = await getDocs(collection(db, 'patients'));
-        const appointmentsSnap = await getDocs(collection(db, 'appointments'));
-        
-        // Mocking some data for the charts if empty
-        setStats({
-          totalPatients: patientsSnap.size || 124,
-          todayVisits: appointmentsSnap.size || 8,
-          avgDmft: 3.2,
-          avgOhis: 1.8,
-        });
+        const allPatients = patientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPatients(allPatients);
 
-        // Fetch recent appointments
-        const q = query(collection(db, 'appointments'), limit(5));
-        const qSnap = await getDocs(q);
-        setRecentAppointments(qSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        // Fetch today's appointments
+        const todayStr = format(startOfToday(), 'yyyy-MM-dd');
+        const appointmentsSnap = await getDocs(collection(db, 'appointments'));
+        const allAppointments = appointmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        
+        const todayVisits = allAppointments.filter(app => app.date.startsWith(todayStr));
+        
+        setStats(prev => ({
+          ...prev,
+          totalPatients: patientsSnap.size,
+          todayVisits: todayVisits.length,
+        }));
+
+        // Fetch 5 most recent upcoming or today's appointments
+        const sortedAppts = allAppointments
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .filter(app => new Date(app.date).getTime() >= startOfToday().getTime())
+          .slice(0, 5);
+
+        setRecentAppointments(sortedAppts);
       } catch (err) {
         console.error(err);
       } finally {
@@ -105,8 +119,8 @@ export default function Dashboard() {
           <p className="text-slate-500 font-medium">Selamat datang kembali di Sistem DentalCare.</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2 bg-white border border-slate-200 rounded-2xl text-sm font-semibold text-slate-600 shadow-sm">
-            {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          <div className="px-4 py-2 bg-white border border-slate-200 rounded-2xl text-sm font-semibold text-slate-600 shadow-sm capitalize">
+            {format(new Date(), 'EEEE, dd MMMM yyyy', { locale: id })}
           </div>
         </div>
       </div>
@@ -176,23 +190,37 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex flex-col items-center justify-center text-slate-900">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Jam</span>
-                    <span className="text-sm font-bold">09:00</span>
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-900">Budi Santoso</p>
-                    <p className="text-xs text-slate-500 font-medium">Pemeriksaan Rutin • Drg. Ahmad</p>
-                  </div>
-                </div>
-                <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                  Menunggu
-                </div>
+            {recentAppointments.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-sm text-slate-500 font-medium">Tidak ada kunjungan hari ini.</p>
               </div>
-            ))}
+            ) : (
+              recentAppointments.map((app) => {
+                const patient = patients.find(p => p.id === app.patientId);
+                return (
+                  <div key={app.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex flex-col items-center justify-center text-slate-900">
+                        <Clock className="w-4 h-4 text-slate-400 mb-0.5" />
+                        <span className="text-sm font-bold">{format(new Date(app.date), 'HH:mm')}</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">{patient?.name || 'Pasien Umum'}</p>
+                        <p className="text-xs text-slate-500 font-medium">{app.notes || 'Pemeriksaan Rutin'}</p>
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                      app.status === 'scheduled' ? "bg-blue-100 text-blue-700" :
+                      app.status === 'completed' ? "bg-emerald-100 text-emerald-700" :
+                      "bg-amber-100 text-amber-700"
+                    )}>
+                      {app.status}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -225,8 +253,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }

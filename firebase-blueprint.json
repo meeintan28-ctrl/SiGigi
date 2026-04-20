@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users with roles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "dentist", "therapist", "staff"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient identity and social data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nik": { "type": "string" },
+        "medicalRecordNumber": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "insurance": { "type": "string" },
+        "occupation": { "type": "string" },
+        "education": { "type": "string" },
+        "maritalStatus": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "nik", "medicalRecordNumber"]
+    },
+    "MedicalRecord": {
+      "title": "Medical Record",
+      "description": "Core dental hygiene record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "visitDate": { "type": "string", "format": "date-time" },
+        "anamnesis": {
+          "type": "object",
+          "properties": {
+            "mainComplaint": { "type": "string" },
+            "currentIllness": { "type": "string" },
+            "pastIllness": { "type": "string" },
+            "allergies": { "type": "string" },
+            "medications": { "type": "string" }
+          }
+        },
+        "clinicalExam": {
+          "type": "object",
+          "properties": {
+            "extraOral": { "type": "object" },
+            "intraOral": { "type": "object" }
+          }
+        },
+        "indices": {
+          "type": "object",
+          "properties": {
+            "dmft": { "type": "number" },
+            "ohis": { "type": "number" },
+            "cpitn": { "type": "number" },
+            "plaqueIndex": { "type": "number" }
+          }
+        },
+        "diagnosis": { "type": "array", "items": { "type": "string" } },
+        "treatmentPlan": { "type": "string" },
+        "treatments": { "type": "array", "items": { "type": "object" } },
+        "education": { "type": "string" },
+        "evaluation": { "type": "string" },
+        "operatorId": { "type": "string" }
+      },
+      "required": ["patientId", "visitDate", "operatorId"]
+    },
+    "Odontogram": {
+      "title": "Odontogram",
+      "description": "Interactive tooth status",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "toothData": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Patient scheduling",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "dentistId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled"] },
+        "notes": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/patients/{patientId}": { "schema": "Patient", "description": "Patient records" },
+    "/patients/{patientId}/medical_records/{recordId}": { "schema": "MedicalRecord", "description": "Medical history" },
+    "/patients/{patientId}/odontogram/current": { "schema": "Odontogram", "description": "Current tooth status" },
+    "/appointments/{appointmentId}": { "schema": "Appointment", "description": "Booking data" }
+  }
+}

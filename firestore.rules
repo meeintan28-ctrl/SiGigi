@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Document ID: uid
+    // Fields: uid, email, displayName, role (admin, dentist, therapist, staff)
+    //
+    // Collection: patients
+    // Document ID: patientId
+    // Fields: name, nik, medicalRecordNumber, birthDate, gender, address, phone, insurance, occupation, education, maritalStatus
+    //
+    // Collection: appointments
+    // Document ID: appointmentId
+    // Fields: patientId, dentistId, date, status, notes
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin') || (request.auth.token.email == "mee.intan28@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isDentist() {
+      return hasRole('dentist');
+    }
+
+    function isTherapist() {
+      return hasRole('therapist');
+    }
+
+    function isStaff() {
+      return hasRole('staff');
+    }
+
+    function isMedicalStaff() {
+      return isAdmin() || isDentist() || isTherapist();
+    }
+
+    function isAuthorizedStaff() {
+      return isMedicalStaff() || isStaff();
+    }
+
+    // Validation Functions
+    function isValidPatient(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.nik is string && data.nik.size() == 16 &&
+             data.medicalRecordNumber is string;
+    }
+
+    function isValidRecord(data) {
+      return data.patientId is string &&
+             data.visitDate is string &&
+             data.operatorId is string;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /patients/{patientId} {
+      allow read: if isAuthorizedStaff();
+      allow create: if isAuthorizedStaff() && isValidPatient(request.resource.data);
+      allow update: if isAuthorizedStaff() && isValidPatient(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /medical_records/{recordId} {
+        allow read: if isAuthorizedStaff();
+        allow create: if isMedicalStaff() && isValidRecord(request.resource.data);
+        allow update: if isMedicalStaff() && isValidRecord(request.resource.data);
+        allow delete: if isAdmin();
+      }
+
+      match /odontogram/{docId} {
+        allow read: if isAuthorizedStaff();
+        allow write: if isMedicalStaff();
+      }
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if isAuthorizedStaff();
+      allow write: if isAuthorizedStaff();
+    }
+  }
+}

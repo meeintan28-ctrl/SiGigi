@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, query, orderBy, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Appointment, Patient } from '../types';
 import { 
   Calendar as CalendarIcon, 
@@ -11,7 +11,8 @@ import {
   XCircle,
   ChevronLeft,
   ChevronRight,
-  Search
+  Search,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
@@ -24,38 +25,57 @@ export default function AppointmentList() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [newAppointment, setNewAppointment] = useState<Partial<Appointment>>({
     status: 'scheduled',
     date: new Date().toISOString(),
   });
 
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const aSnap = await getDocs(collection(db, 'appointments'));
+      setAppointments(aSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
+      
+      const pSnap = await getDocs(collection(db, 'patients'));
+      setPatients(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const aSnap = await getDocs(collection(db, 'appointments'));
-        setAppointments(aSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
-        
-        const pSnap = await getDocs(collection(db, 'patients'));
-        setPatients(pSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient)));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
+  const handleUpdateStatus = async (appointmentId: string, status: 'completed' | 'cancelled') => {
+    setIsProcessing(true);
+    try {
+      await updateDoc(doc(db, 'appointments', appointmentId), { status });
+      await fetchData();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `appointments/${appointmentId}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsProcessing(true);
     try {
-      await addDoc(collection(db, 'appointments'), newAppointment);
+      await addDoc(collection(db, 'appointments'), {
+        ...newAppointment,
+        createdAt: new Date().toISOString(),
+      });
       setIsModalOpen(false);
-      // Refresh
-      const aSnap = await getDocs(collection(db, 'appointments'));
-      setAppointments(aSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
+      await fetchData();
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.CREATE, 'appointments');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -154,11 +174,30 @@ export default function AppointmentList() {
                       app.status === 'completed' ? "bg-emerald-100 text-emerald-700" :
                       "bg-red-100 text-red-700"
                     )}>
-                      {app.status}
+                      {app.status === 'scheduled' ? 'Terjadwal' : 
+                       app.status === 'completed' ? 'Selesai' : 'Batal'}
                     </span>
-                    <button className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors">
-                      <CheckCircle2 className="w-6 h-6" />
-                    </button>
+                    
+                    {app.status === 'scheduled' && (
+                      <div className="flex items-center gap-1">
+                        <button 
+                          disabled={isProcessing}
+                          onClick={() => handleUpdateStatus(app.id, 'completed')}
+                          className="p-2 hover:bg-emerald-50 rounded-xl text-emerald-600 transition-colors disabled:opacity-50"
+                          title="Tandai Selesai"
+                        >
+                          <CheckCircle2 className="w-5 h-5" />
+                        </button>
+                        <button 
+                          disabled={isProcessing}
+                          onClick={() => handleUpdateStatus(app.id, 'cancelled')}
+                          className="p-2 hover:bg-red-50 rounded-xl text-red-600 transition-colors disabled:opacity-50"
+                          title="Batalkan"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               );

@@ -261,6 +261,73 @@ export default function PatientDetail({ user }: PatientDetailProps) {
         updatedAt: new Date().toISOString()
       });
 
+      // Reset record form
+      setNewRecord({
+        visitNumber: (recordData.visitNumber || 1) + 1,
+        vitalSigns: { bloodPressure: '', pulse: 0, respiration: 0 },
+        healthHistory: {
+          medicalHistory: {
+            isHealthy: true,
+            seriousIllness5Years: '',
+            bloodDisorder: '',
+            allergies: { food: '', drugs: '', anesthesia: '', weather: '', others: '' }
+          },
+          socialHistory: '',
+          pharmacologicalHistory: {
+            takingMeds: false,
+            medNamePurpose: '',
+            sideEffects: '',
+            positiveEffects: '',
+            dosageIssues: '',
+            regularConsumption: false
+          }
+        },
+        dentalHistory: {
+          bagian1: {
+            reason: '', concerns: [], xrayLast2Years: false, previousComplications: '',
+            previousVisitOpinion: '', generalHealthImpact: '', symptoms: [],
+            teethGrinding: false, biteGuard: false, appearanceConcerns: [],
+            injuryHistory: '', previousTreatments: []
+          },
+          bagian2: {
+            toolsUsed: [], toothpasteBenefits: [], brushingDuration: 0, flossingDuration: 0,
+            brushingFrequency: '', flossingFrequency: '', difficultyScheduling: false,
+            difficultyCleaning: [], monthlyCancerCheck: false, habits: []
+          },
+          bagian3: { snacks: {} },
+          bagian4: { cavityRiskOpinion: '', preventionImportance: '', beliefCanMaintain: true, currentHealthOpinion: '' }
+        },
+        clinicalExam: { extraOral: {}, intraOral: {}, notes: '' },
+        oralHygiene: {
+          ohis: { debrisIndex: {}, calculusIndex: {}, totalDI: 0, totalCI: 0, score: 0, category: '' },
+          plaqueControl: { teeth: {}, score: 0, category: '' }
+        },
+        odontogram: {},
+        periodontalCalculus: {
+          bleedingOnProbing: {}, attachmentLoss: {}, pocketDepth4mm: {}, extrinsicStains: {},
+          calculusScore: {}, totalCalculusScore: 0
+        },
+        diagnosisAskesgilut: { needs: [], causes: '', signs: '' },
+        planning: { goals: '', interventions: '' },
+        evaluation: '',
+        nextVisitDate: '',
+        recommendations: '',
+        informedConsent: { 
+          patientSigned: false, 
+          parentSigned: false, 
+          witnessSigned: false, 
+          operatorSigned: false,
+          patientSignature: '',
+          guardianSignature: '',
+          operatorSignature: ''
+        }
+      });
+
+      // Clear signature pads
+      patientSigPad.current?.clear();
+      guardianSigPad.current?.clear();
+      operatorSigPad.current?.clear();
+
       setActiveTab('history');
       // Refresh records
       const rSnap = await getDocs(query(collection(db, 'patients', patientId, 'medical_records'), orderBy('visitDate', 'desc')));

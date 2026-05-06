@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ShieldCheck, LogIn, RefreshCw } from 'lucide-react';
+import { ShieldCheck, LogIn, RefreshCw, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Login() {
@@ -20,8 +20,11 @@ export default function Login() {
     setCaptcha(result);
   };
 
+  const [isIframe, setIsIframe] = useState(false);
+
   useEffect(() => {
     generateCaptcha();
+    setIsIframe(window.self !== window.top);
   }, []);
 
   const handleGoogleLogin = async () => {
@@ -51,9 +54,17 @@ export default function Login() {
           createdAt: new Date().toISOString(),
         });
       }
-    } catch (err) {
-      console.error(err);
-      setError('Gagal masuk. Silakan coba lagi.');
+    } catch (err: any) {
+      console.error('Auth Error:', err);
+      if (err.code === 'auth/popup-blocked') {
+        setError('Popup terblokir oleh browser. Silakan izinkan popup untuk situs ini.');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError('Proses masuk dibatalkan.');
+      } else if (window.self !== window.top) {
+        setError('Proses masuk mungkin terblokir karena aplikasi dijalankan di dalam iframe. Silakan buka aplikasi di tab baru.');
+      } else {
+        setError(`Gagal masuk: ${err.message || 'Silakan coba lagi.'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +84,15 @@ export default function Login() {
           <h1 className="text-3xl font-bold text-slate-900 mb-2">DentalCare</h1>
           <p className="text-slate-500 text-center font-medium">Sistem Informasi Asuhan Kesehatan Gigi & Mulut</p>
         </div>
+
+        {isIframe && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl text-xs font-medium flex gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <p>
+              Anda sedang membuka aplikasi di dalam iFrame. Jika login gagal, silakan gunakan tombol <strong>"Buka di tab baru"</strong> di pojok kanan atas.
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium">

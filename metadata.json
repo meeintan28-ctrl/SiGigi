@@ -2,5 +2,12 @@
   "name": "E-DentalCareSystem - Sistem Asuhan Kesehatan Gigi",
   "description": "Sistem informasi asuhan kesehatan gigi dan mulut individu terstandar WHO & Kemenkes RI, dilengkapi rekam medis elektronik, odontogram interaktif, dan analisis DMF-T/OHI-S.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "Rekam Medis Elektronik Terstandar",
+    "Odontogram Interaktif WHO",
+    "Analisis DMF-T & OHI-S Otomatis",
+    "Integrasi AI Gemini untuk Diagnosis",
+    "Manajemen Jadwal Janji Temu",
+    "Edukasi & Promosi Kesehatan Digital"
+  ]
 }

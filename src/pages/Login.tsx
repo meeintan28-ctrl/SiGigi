@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth, db } from '../firebase';
+import { auth, db, isDbConnected } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ShieldCheck, LogIn, RefreshCw, AlertCircle } from 'lucide-react';
+import { ShieldCheck, LogIn, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { cn } from '../lib/utils';
+
+const ADMIN_EMAILS = ['mee.intan28@gmail.com'];
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [captcha, setCaptcha] = useState('');
   const [captchaInput, setCaptchaInput] = useState('');
+  const [dbStatus, setDbStatus] = useState(isDbConnected);
 
   const generateCaptcha = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -25,6 +29,11 @@ export default function Login() {
   useEffect(() => {
     generateCaptcha();
     setIsIframe(window.self !== window.top);
+    
+    const interval = setInterval(() => {
+      setDbStatus(isDbConnected);
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleGoogleLogin = async () => {
@@ -42,6 +51,8 @@ export default function Login() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
+      const isAdminEmail = user.email ? ADMIN_EMAILS.includes(user.email) : false;
+
       // Check if user profile exists
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (!userDoc.exists()) {
@@ -50,9 +61,15 @@ export default function Login() {
           uid: user.uid,
           email: user.email,
           displayName: user.displayName || 'User',
-          role: 'staff', // Default role
+          role: isAdminEmail ? 'admin' : 'staff',
           createdAt: new Date().toISOString(),
         });
+      } else if (isAdminEmail && userDoc.data().role !== 'admin') {
+        // Ensure role is admin if it's the special email but doc says otherwise
+        await setDoc(doc(db, 'users', user.uid), {
+          ...userDoc.data(),
+          role: 'admin'
+        }, { merge: true });
       }
     } catch (err: any) {
       console.error('Auth Error:', err);
@@ -83,6 +100,16 @@ export default function Login() {
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">DentalCare</h1>
           <p className="text-slate-500 text-center font-medium">Sistem Informasi Asuhan Kesehatan Gigi & Mulut</p>
+        </div>
+
+        <div className="mb-6 flex justify-center">
+          <div className={cn(
+            "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all",
+            dbStatus ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"
+          )}>
+            <div className={cn("w-2 h-2 rounded-full", dbStatus ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
+            {dbStatus ? "Database Terhubung" : "Menghubungkan Database..."}
+          </div>
         </div>
 
         {isIframe && (

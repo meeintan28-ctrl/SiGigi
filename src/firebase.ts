@@ -8,12 +8,20 @@ export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 // Test connection
+export let isDbConnected = false;
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
+    isDbConnected = true;
+    console.log("Firebase Connected Successfully");
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error("Please check your Firebase configuration.");
+      isDbConnected = false;
+    } else {
+      // It might fail because 'test/connection' doc doesn't exist, which is fine, 
+      // but if it didn't throw 'offline', it means we reached the server.
+      isDbConnected = true;
     }
   }
 }
